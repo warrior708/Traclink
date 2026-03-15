@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#050a03">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>TACLINK // SECURE COMMS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Oswald:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:        #050a03;
+  --bg2:       #080e05;
+  --panel:     #0a1207;
+  --border:    #1a2e12;
+  --border2:   #243d1a;
+  --green:     #39ff14;
+  --green2:    #1aff00;
+  --greendim:  #2a8a0a;
+  --greenalo:  rgba(57,255,20,0.08);
+  --amber:     #ffb300;
+  --amberdim:  #7a5500;
+  --red:       #ff2020;
+  --text:      #8db87a;
+  --textbr:    #b8d4a0;
+  --textdim:   #3d5530;
+  --mono:      'Share Tech Mono', monospace;
+  --head:      'Oswald', sans-serif;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+
+html,body{
+  width:100%;height:100%;overflow:hidden;
+  background:var(--bg);color:var(--text);
+  font-family:var(--mono);
+  touch-action:none;
+}
+
+/* ═══ NOISE TEXTURE OVERLAY ═══ */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity:.35;
+}
+/* scanlines */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:998;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.18) 3px,rgba(0,0,0,.18) 4px);
+}
+
+/* ═══ LAYOUT ═══ */
+#wrap{
+  display:flex;flex-direction:column;
+  height:100%;max-width:440px;margin:0 auto;
+  padding:0 16px 16px;
+  position:relative;
+}
+
+/* ═══ HEADER ═══ */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 0 10px;
+  border-bottom:1px solid var(--border2);
+  position:relative;
+}
+.callsign{
+  font-family:var(--head);font-size:20px;font-weight:600;
+  letter-spacing:.25em;color:var(--green);
+  text-shadow:0 0 12px rgba(57,255,20,.5);
+}
+.callsign sub{
+  font-family:var(--mono);font-size:8px;font-weight:400;
+  letter-spacing:.15em;color:var(--greendim);
+  vertical-align:middle;margin-left:4px;
+}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+
+/* classification strip */
+.classif{
+  font-size:8px;letter-spacing:.18em;color:var(--amber);
+  border:1px solid var(--amberdim);background:rgba(255,179,0,.06);
+  padding:2px 7px;border-radius:2px;
+  animation:classifPulse 4s infinite;
+}
+@keyframes classifPulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* signal bars */
+.sigbars{display:flex;gap:2px;align-items:flex-end;height:14px;}
+.sigbars .b{width:3px;background:var(--textdim);border-radius:1px;transition:background .4s;}
+.sigbars .b:nth-child(1){height:4px}.sigbars .b:nth-child(2){height:7px}
+.sigbars .b:nth-child(3){height:10px}.sigbars .b:nth-child(4){height:14px}
+.sigbars.live .b{background:var(--green);}
+.sigbars.live .b:nth-child(4){background:var(--border2);}
+
+/* ═══ GRID LINE DECORATION ═══ */
+.grid-line{
+  height:1px;margin:0 -16px;
+  background:linear-gradient(90deg,transparent,var(--border2) 20%,var(--border2) 80%,transparent);
+}
+
+/* ═══ RADAR SECTION ═══ */
+#radar-section{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 0 8px;
+}
+#radar-canvas{
+  flex-shrink:0;
+  border:1px solid var(--border2);
+  border-radius:50%;
+  background:#020601;
+  box-shadow:0 0 0 1px var(--border),inset 0 0 20px rgba(0,0,0,.8);
+}
+.radar-info{flex:1;display:flex;flex-direction:column;gap:5px;}
+.ri-row{display:flex;justify-content:space-between;align-items:center;}
+.ri-label{font-size:9px;letter-spacing:.15em;color:var(--textdim);}
+.ri-val{font-size:10px;letter-spacing:.1em;color:var(--textbr);}
+.ri-val.live{color:var(--green);text-shadow:0 0 6px rgba(57,255,20,.4);}
+.ri-val.warn{color:var(--amber);}
+
+/* ═══ CONNECTION PANEL ═══ */
+#conn-section{
+  background:var(--panel);
+  border:1px solid var(--border2);
+  border-radius:4px;
+  overflow:hidden;
+  margin-top:8px;
+}
+.conn-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;
+  background:rgba(57,255,20,.04);
+  border-bottom:1px solid var(--border);
+}
+.conn-title{font-size:9px;letter-spacing:.2em;color:var(--green);display:flex;align-items:center;gap:6px;}
+.conn-title::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* Step tabs */
+.steps{display:flex;border-bottom:1px solid var(--border);}
+.step-btn{
+  flex:1;padding:8px 4px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.12em;
+  background:transparent;border:none;color:var(--textdim);cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .2s;
+  position:relative;
+}
+.step-btn.active{color:var(--green);border-bottom-color:var(--green);}
+.step-btn .snum{
+  display:block;font-size:14px;color:inherit;
+  font-family:var(--head);font-weight:500;letter-spacing:.05em;
+  margin-bottom:2px;
+}
+.step-btn.done .snum{color:var(--greendim);}
+.step-btn.done{color:var(--textdim);}
+.step-btn.done::after{
+  content:'✓';position:absolute;top:6px;right:8px;
+  font-size:10px;color:var(--greendim);
+}
+
+.step-body{padding:12px;}
+
+/* code display */
+.code-block{
+  font-size:9px;color:var(--green2);
+  background:rgba(0,0,0,.4);
+  border:1px solid var(--border2);
+  border-left:2px solid var(--green);
+  border-radius:3px;
+  padding:9px 10px;
+  word-break:break-all;line-height:1.7;
+  min-height:52px;
+  position:relative;
+  cursor:pointer;
+  transition:border-color .2s;
+}
+.code-block:hover{border-left-color:var(--green2);}
+.code-block.empty{color:var(--textdim);font-size:9px;border-left-color:var(--textdim);}
+.copy-hint{
+  position:absolute;bottom:5px;right:8px;
+  font-size:8px;letter-spacing:.1em;color:var(--textdim);
+}
+
+/* instruction text */
+.inst{
+  font-size:9px;letter-spacing:.08em;color:var(--textdim);
+  line-height:1.6;margin-bottom:10px;
+}
+.inst strong{color:var(--text);}
+
+textarea{
+  width:100%;font-family:var(--mono);font-size:9px;color:var(--textbr);
+  background:rgba(0,0,0,.4);
+  border:1px solid var(--border2);border-left:2px solid var(--amber);
+  border-radius:3px;padding:9px 10px;resize:none;outline:none;
+  height:68px;line-height:1.7;
+  caret-color:var(--green);transition:border-color .2s;
+}
+textarea:focus{border-color:var(--green2);border-left-color:var(--green);}
+textarea::placeholder{color:var(--textdim);}
+
+.btn-row{display:flex;gap:8px;margin-top:10px;}
+.mbtn{
+  flex:1;padding:9px 8px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  border-radius:3px;cursor:pointer;transition:all .2s;
+  border:1px solid var(--border2);background:transparent;color:var(--textdim);
+}
+.mbtn:active{transform:scale(.97);}
+.mbtn.go{
+  background:rgba(57,255,20,.1);border-color:var(--greendim);color:var(--green);
+  font-weight:500;
+}
+.mbtn.go:hover{background:rgba(57,255,20,.18);}
+
+/* save toggle */
+.save-row{
+  display:flex;align-items:center;gap:8px;margin-top:9px;
+  font-size:9px;letter-spacing:.1em;color:var(--textdim);cursor:pointer;
+}
+.tog{
+  width:26px;height:14px;border-radius:7px;
+  background:var(--border2);position:relative;transition:background .2s;flex-shrink:0;
+}
+.tog::after{
+  content:'';position:absolute;top:2px;left:2px;
+  width:10px;height:10px;border-radius:50%;background:var(--textdim);transition:all .2s;
+}
+.tog.on{background:rgba(57,255,20,.25);}
+.tog.on::after{left:14px;background:var(--green);}
+
+/* ═══ STATUS BAR ═══ */
+#status-bar{
+  display:flex;align-items:center;gap:8px;
+  margin-top:8px;padding:6px 10px;
+  background:var(--panel);border:1px solid var(--border);border-radius:3px;
+  font-size:9px;letter-spacing:.12em;color:var(--textdim);
+}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--textdim);transition:all .3s;flex-shrink:0;}
+.sdot.live{background:var(--green);box-shadow:0 0 8px var(--green);}
+.sdot.tx{background:var(--amber);box-shadow:0 0 8px var(--amber);animation:blink .4s infinite;}
+.sdot.err{background:var(--red);box-shadow:0 0 8px var(--red);}
+#stxt{flex:1;}
+.enc-badge{
+  font-size:8px;letter-spacing:.1em;color:var(--greendim);
+  border:1px solid var(--border2);padding:1px 5px;border-radius:2px;
+  flex-shrink:0;display:none;
+}
+.enc-badge.on{display:block;}
+
+/* ═══ PTT ZONE ═══ */
+#ptt-zone{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:14px;position:relative;
+}
+
+/* frequency readout */
+.freq-panel{
+  text-align:center;
+  background:var(--panel);border:1px solid var(--border2);
+  border-radius:3px;padding:8px 24px;
+  position:relative;
+}
+.freq-panel::before{
+  content:'FREQ';position:absolute;top:4px;left:8px;
+  font-size:7px;letter-spacing:.2em;color:var(--textdim);
+}
+.freq-panel::after{
+  content:'SECURE';position:absolute;top:4px;right:8px;
+  font-size:7px;letter-spacing:.15em;color:var(--greendim);
+}
+.fval{font-size:24px;letter-spacing:.08em;color:var(--textbr);font-family:var(--mono);}
+.funit{font-size:10px;letter-spacing:.18em;color:var(--textdim);margin-top:2px;}
+
+/* PTT BUTTON */
+.ptt-wrap{position:relative;width:190px;height:190px;display:flex;align-items:center;justify-content:center;}
+
+.ring{
+  position:absolute;border-radius:50%;
+  border:1px solid var(--green);opacity:0;
+  width:100%;height:100%;pointer-events:none;
+}
+#ptt.tx ~ .ring             {animation:ripple 1.1s ease-out infinite;}
+#ptt.tx ~ .ring:nth-child(2){animation-delay:.37s;}
+#ptt.tx ~ .ring:nth-child(3){animation-delay:.74s;}
+@keyframes ripple{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.8);opacity:0}}
+
+#ptt{
+  width:164px;height:164px;border-radius:50%;
+  border:none;cursor:pointer;
+  position:relative;z-index:1;
+  user-select:none;-webkit-user-select:none;
+  transition:transform .07s,box-shadow .15s;
+
+  background:
+    radial-gradient(circle at 35% 30%,rgba(57,255,20,.06) 0%,transparent 50%),
+    radial-gradient(circle at 50% 50%,#0f1a0a 0%,#080e05 55%,#050a03 100%);
+  box-shadow:
+    0 0 0 2px #0d1a08,
+    0 0 0 5px #0a1207,
+    0 6px 28px rgba(0,0,0,.9),
+    inset 0 1px 0 rgba(57,255,20,.06);
+
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+}
+
+/* tactical cross-hair decoration on button */
+#ptt::before{
+  content:'';position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:
+    linear-gradient(var(--border) 1px,transparent 1px),
+    linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:100% 50%,50% 100%;
+  background-position:50% 0,0 50%;
+  opacity:.4;
+}
+
+#ptt svg{width:34px;height:34px;}
+#ptt svg path{fill:var(--textdim);transition:fill .15s;}
+#ptt .plbl{font-size:9px;letter-spacing:.22em;color:var(--textdim);transition:color .15s;}
+
+#ptt.tx{
+  transform:scale(.95);
+  background:
+    radial-gradient(circle at 35% 30%,rgba(57,255,20,.15) 0%,transparent 50%),
+    radial-gradient(circle at 50% 50%,#172410 0%,#0d1c08 55%,#081205 100%);
+  box-shadow:
+    0 0 0 2px rgba(57,255,20,.25),
+    0 0 0 5px rgba(57,255,20,.08),
+    0 6px 36px rgba(57,255,20,.25),
+    0 0 80px rgba(57,255,20,.1),
+    inset 0 1px 0 rgba(57,255,20,.1);
+}
+#ptt.tx svg path{fill:var(--green);}
+#ptt.tx .plbl{color:var(--green);text-shadow:0 0 8px var(--green);}
+#ptt:disabled{opacity:.25;cursor:not-allowed;}
+
+/* VU meter */
+#vu{display:flex;gap:3px;align-items:flex-end;height:22px;opacity:0;transition:opacity .3s;}
+#vu.on{opacity:1;}
+#vu .vb{width:5px;border-radius:1px;background:var(--green);height:3px;transition:height .05s;}
+
+/* ═══ TELEMETRY ROW ═══ */
+.telem{
+  display:flex;gap:8px;width:100%;
+}
+.tel-cell{
+  flex:1;background:var(--panel);border:1px solid var(--border);border-radius:3px;
+  padding:5px 8px;text-align:center;
+}
+.tel-label{font-size:7px;letter-spacing:.18em;color:var(--textdim);margin-bottom:3px;}
+.tel-val{font-size:11px;letter-spacing:.08em;color:var(--text);}
+.tel-val.on{color:var(--green);}
+
+/* ═══ SAVED BANNER ═══ */
+#saved-banner{
+  display:none;margin-top:8px;padding:9px 12px;
+  background:rgba(255,179,0,.05);border:1px solid rgba(255,179,0,.2);border-radius:3px;
+  align-items:center;gap:10px;
+}
+#saved-banner.on{display:flex;}
+.sb-l{flex:1;}
+.sb-title{font-size:9px;letter-spacing:.15em;color:var(--amber);}
+.sb-sub{font-size:8px;color:var(--textdim);margin-top:2px;letter-spacing:.08em;}
+.sbbtn{
+  font-family:var(--mono);font-size:9px;letter-spacing:.08em;
+  padding:5px 10px;border-radius:3px;border:none;cursor:pointer;transition:all .2s;
+  white-space:nowrap;
+}
+.sbbtn.go{background:rgba(255,179,0,.15);color:var(--amber);border:1px solid rgba(255,179,0,.3);}
+.sbbtn.cl{background:transparent;color:var(--textdim);border:1px solid var(--border);}
+
+/* ═══ TOAST ═══ */
+#toast{
+  position:fixed;bottom:70px;left:50%;transform:translateX(-50%);
+  background:#0d1a08;border:1px solid var(--border2);border-left:2px solid var(--green);
+  color:var(--textbr);font-family:var(--mono);font-size:10px;
+  letter-spacing:.08em;padding:9px 18px;border-radius:3px;
+  opacity:0;pointer-events:none;transition:opacity .25s;white-space:nowrap;z-index:1000;
+}
+#toast.on{opacity:1;}
+
+/* hidden panel when connected */
+#conn-section.hidden{display:none;}
+#show-conn{
+  font-family:var(--mono);font-size:8px;letter-spacing:.15em;color:var(--textdim);
+  background:none;border:none;cursor:pointer;margin-top:6px;padding:3px 0;
+}
+#show-conn:hover{color:var(--text);}
+</style>
+</head>
+<body>
+<div id="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="callsign">TACLINK <sub>// SECURE</sub></div>
+    <div class="hdr-right">
+      <div class="classif">TOP SECRET</div>
+      <div class="sigbars" id="sigbars">
+        <div class="b"></div><div class="b"></div>
+        <div class="b"></div><div class="b"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- RADAR + TELEMETRY -->
+  <div id="radar-section">
+    <canvas id="radar-canvas" width="88" height="88"></canvas>
+    <div class="radar-info">
+      <div class="ri-row">
+        <span class="ri-label">OPERATOR</span>
+        <span class="ri-val" id="ri-op">UNIT-ALPHA</span>
+      </div>
+      <div class="ri-row">
+        <span class="ri-label">PEER STATUS</span>
+        <span class="ri-val warn" id="ri-peer">OFFLINE</span>
+      </div>
+      <div class="ri-row">
+        <span class="ri-label">ENCRYPTION</span>
+        <span class="ri-val">AES-P2P</span>
+      </div>
+      <div class="ri-row">
+        <span class="ri-label">PROTOCOL</span>
+        <span class="ri-val">WEBRTC/DTLS</span>
+      </div>
+      <div class="ri-row">
+        <span class="ri-label">UPTIME</span>
+        <span class="ri-val" id="ri-up">00:00:00</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-line"></div>
+
+  <!-- SAVED BANNER -->
+  <div id="saved-banner">
+    <div class="sb-l">
+      <div class="sb-title">▲ SAVED SESSION FOUND</div>
+      <div class="sb-sub" id="sb-sub">LOADING…</div>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button class="sbbtn go" onclick="reconnectSaved()">RECONNECT</button>
+      <button class="sbbtn cl" onclick="clearSaved()">CLEAR</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       CONNECTION PANEL — FIXED 3-STEP FLOW
+       Step 1 (Alpha): Generate offer → copy it → share with Bravo
+       Step 2 (Bravo): Paste Alpha's offer → get answer → copy answer → send to Alpha
+       Step 3 (Alpha): Paste Bravo's answer → CONNECTED
+  ════════════════════════════════════════ -->
+  <div id="conn-section">
+    <div class="conn-header">
+      <div class="conn-title">ESTABLISH SECURE CHANNEL</div>
+    </div>
+
+    <div class="steps">
+      <button class="step-btn active" id="s1btn" onclick="showStep(1)">
+        <span class="snum">01</span>ALPHA INIT
+      </button>
+      <button class="step-btn" id="s2btn" onclick="showStep(2)">
+        <span class="snum">02</span>BRAVO JOIN
+      </button>
+      <button class="step-btn" id="s3btn" onclick="showStep(3)">
+        <span class="snum">03</span>ALPHA CONFIRM
+      </button>
+    </div>
+
+    <!-- STEP 1: Alpha generates offer -->
+    <div class="step-body" id="step1">
+      <div class="inst">
+        <strong>YOU ARE ALPHA.</strong> Tap GENERATE to create a channel code.
+        Copy it and send to Bravo via any channel (SMS, chat, etc).
+        Then wait — Bravo will send you back a response code.
+      </div>
+      <div class="code-block empty" id="offer-block" onclick="copyOffer()">
+        AWAITING GENERATION…
+        <span class="copy-hint">TAP TO COPY</span>
+      </div>
+      <div class="save-row" onclick="toggleSave('c')">
+        <div class="tog on" id="tog-c"></div>
+        <span>REMEMBER THIS SESSION</span>
+      </div>
+      <div class="btn-row">
+        <button class="mbtn go" onclick="generateOffer()">▶ GENERATE CODE</button>
+        <button class="mbtn" onclick="copyOffer()">COPY</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Bravo pastes offer, gets answer -->
+    <div class="step-body" id="step2" style="display:none">
+      <div class="inst">
+        <strong>YOU ARE BRAVO.</strong> Paste Alpha's code below and tap GENERATE RESPONSE.
+        A response code will appear — copy it and send back to Alpha.
+        Then wait for Alpha to confirm.
+      </div>
+      <textarea id="offer-input" placeholder="PASTE ALPHA'S CODE HERE…"></textarea>
+      <div class="code-block empty" id="answer-block" onclick="copyAnswer()">
+        RESPONSE CODE WILL APPEAR HERE
+        <span class="copy-hint">TAP TO COPY</span>
+      </div>
+      <div class="save-row" onclick="toggleSave('j')">
+        <div class="tog on" id="tog-j"></div>
+        <span>REMEMBER THIS SESSION</span>
+      </div>
+      <div class="btn-row">
+        <button class="mbtn go" onclick="generateAnswer()">▶ GENERATE RESPONSE</button>
+        <button class="mbtn" onclick="copyAnswer()">COPY RESPONSE</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Alpha pastes answer to complete -->
+    <div class="step-body" id="step3" style="display:none">
+      <div class="inst">
+        <strong>YOU ARE ALPHA.</strong> Paste Bravo's response code below and tap CONNECT.
+        This is the final step — channel opens immediately.
+      </div>
+      <textarea id="answer-input" placeholder="PASTE BRAVO'S RESPONSE CODE HERE…"></textarea>
+      <div class="btn-row">
+        <button class="mbtn go" onclick="connectWithAnswer()">▶ CONNECT NOW</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="show-conn" style="display:none" onclick="toggleConnPanel()">▼ SHOW CONNECTION PANEL</button>
+
+  <!-- STATUS BAR -->
+  <div id="status-bar">
+    <div class="sdot" id="sdot"></div>
+    <span id="stxt">OFFLINE — SELECT STEP TO BEGIN</span>
+    <span class="enc-badge on" id="enc-badge">DTLS-SRTP</span>
+  </div>
+
+  <!-- PTT ZONE -->
+  <div id="ptt-zone">
+
+    <div class="telem">
+      <div class="tel-cell">
+        <div class="tel-label">MODE</div>
+        <div class="tel-val" id="tel-mode">STANDBY</div>
+      </div>
+      <div class="tel-cell">
+        <div class="tel-label">CHANNEL</div>
+        <div class="tel-val">TAC-01</div>
+      </div>
+      <div class="tel-cell">
+        <div class="tel-label">AUDIO</div>
+        <div class="tel-val" id="tel-audio">MUTED</div>
+      </div>
+    </div>
+
+    <div class="freq-panel">
+      <div class="fval" id="fval">462.5625</div>
+      <div class="funit">MHz · ENCRYPTED</div>
+    </div>
+
+    <div class="ptt-wrap">
+      <button id="ptt" disabled>
+        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 2C15.24 2 13 4.24 13 7v11c0 2.76 2.24 5 5 5s5-2.24 5-5V7c0-2.76-2.24-5-5-5z"/>
+          <path d="M7 17c0 6.08 4.48 11.1 10.33 11.9V32h-3.33a1 1 0 000 2h8a1 1 0 000-2h-3.33v-3.1C24.52 28.1 29 23.08 29 17h-2c0 4.96-4.04 9-9 9s-9-4.04-9-9H7z"/>
+        </svg>
+        <span class="plbl">PUSH TO TALK</span>
+      </button>
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+    </div>
+
+    <div id="vu">
+      <div class="vb"></div><div class="vb"></div><div class="vb"></div><div class="vb"></div>
+      <div class="vb"></div><div class="vb"></div><div class="vb"></div><div class="vb"></div>
+      <div class="vb"></div><div class="vb"></div><div class="vb"></div><div class="vb"></div>
+    </div>
+
+  </div>
+
+</div><!-- /wrap -->
+
+<div id="toast"></div>
+<audio id="remote-audio" autoplay playsinline style="display:none"></audio>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  RADAR ANIMATION
+// ══════════════════════════════════════════════════════
+(function() {
+  const cv = document.getElementById('radar-canvas');
+  const cx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, R = W/2;
+  let angle = 0;
+  // Random blips
+  const blips = Array.from({length:5},()=>({
+    a: Math.random()*Math.PI*2,
+    r: 10+Math.random()*(R-20),
+    age: Math.random()*80,
+    maxAge: 80+Math.random()*40
+  }));
+
+  function drawRadar() {
+    cx.clearRect(0,0,W,H);
+    // BG
+    cx.fillStyle='#020601';
+    cx.beginPath();cx.arc(R,R,R,0,Math.PI*2);cx.fill();
+
+    // Grid rings
+    for(let i=1;i<=3;i++){
+      cx.beginPath();cx.arc(R,R,(R-2)*i/3,0,Math.PI*2);
+      cx.strokeStyle='rgba(26,46,18,0.7)';cx.lineWidth=1;cx.stroke();
+    }
+    // Grid cross
+    cx.strokeStyle='rgba(26,46,18,0.5)';cx.lineWidth=1;
+    cx.beginPath();cx.moveTo(R,2);cx.lineTo(R,H-2);cx.stroke();
+    cx.beginPath();cx.moveTo(2,R);cx.lineTo(W-2,R);cx.stroke();
+
+    // Sweep
+    const grd = cx.createConicalGradient ? null : null;
+    cx.save();
+    cx.translate(R,R);cx.rotate(angle);
+    const sweep = cx.createLinearGradient(0,0,R-2,0);
+    sweep.addColorStop(0,'rgba(57,255,20,0.45)');
+    sweep.addColorStop(1,'rgba(57,255,20,0)');
+    cx.beginPath();cx.moveTo(0,0);
+    cx.arc(0,0,R-2,-0.4,0);
+    cx.fillStyle=sweep;cx.fill();
+    // Sweep line
+    cx.beginPath();cx.moveTo(0,0);cx.lineTo(R-2,0);
+    cx.strokeStyle='rgba(57,255,20,0.9)';cx.lineWidth=1.5;cx.stroke();
+    cx.restore();
+
+    // Blips — only show when connected
+    if(window._connected){
+      blips.forEach(b=>{
+        const diff = ((angle - b.a) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+        if(diff < 0.3) b.age = 0;
+        b.age++;
+        const fade = Math.max(0, 1 - b.age/b.maxAge);
+        if(fade > 0.02){
+          const bx = R + Math.cos(b.a)*b.r;
+          const by = R + Math.sin(b.a)*b.r;
+          cx.beginPath();cx.arc(bx,by,2.5,0,Math.PI*2);
+          cx.fillStyle=`rgba(57,255,20,${fade})`;cx.fill();
+        }
+      });
+    }
+
+    // Border ring
+    cx.beginPath();cx.arc(R,R,R-1,0,Math.PI*2);
+    cx.strokeStyle='rgba(57,255,20,0.15)';cx.lineWidth=2;cx.stroke();
+
+    angle += 0.025;
+    requestAnimationFrame(drawRadar);
+  }
+  drawRadar();
+})();
+
+// ══════════════════════════════════════════════════════
+//  UPTIME CLOCK
+// ══════════════════════════════════════════════════════
+let connectedAt = null;
+setInterval(()=>{
+  if(!connectedAt){ document.getElementById('ri-up').textContent='00:00:00'; return; }
+  const s = Math.floor((Date.now()-connectedAt)/1000);
+  const h = String(Math.floor(s/3600)).padStart(2,'0');
+  const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const sc= String(s%60).padStart(2,'0');
+  document.getElementById('ri-up').textContent=`${h}:${m}:${sc}`;
+},1000);
+
+// Random callsign on load
+const CALLSIGNS=['UNIT-ALPHA','DELTA-7','BRAVO-3','CHARLIE-9','ECHO-ACTUAL','FOXTROT-1'];
+document.getElementById('ri-op').textContent = CALLSIGNS[Math.floor(Math.random()*CALLSIGNS.length)];
+
+// ══════════════════════════════════════════════════════
+//  STORAGE
+// ══════════════════════════════════════════════════════
+const SK = 'taclink_v3';
+let saveC=true, saveJ=true;
+
+function toggleSave(which){
+  if(which==='c'){saveC=!saveC;document.getElementById('tog-c').classList.toggle('on',saveC);}
+  else{saveJ=!saveJ;document.getElementById('tog-j').classList.toggle('on',saveJ);}
+}
+function storageSave(role, offerCode){
+  try{localStorage.setItem(SK,JSON.stringify({role,offerCode,ts:Date.now()}));}catch(e){}
+}
+function storageLoad(){
+  try{return JSON.parse(localStorage.getItem(SK));}catch(e){return null;}
+}
+function clearSaved(){
+  localStorage.removeItem(SK);
+  document.getElementById('saved-banner').classList.remove('on');
+  toast('SAVED SESSION CLEARED');
+}
+function ageStr(ts){
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60)return 'JUST NOW';
+  if(s<3600)return Math.floor(s/60)+' MIN AGO';
+  if(s<86400)return Math.floor(s/3600)+' HR AGO';
+  return Math.floor(s/86400)+' DAYS AGO';
+}
+// Check saved on load
+(function(){
+  const s=storageLoad();if(!s)return;
+  document.getElementById('saved-banner').classList.add('on');
+  document.getElementById('sb-sub').textContent=
+    (s.role==='alpha'?'ALPHA MODE · ':'BRAVO MODE · ')+ageStr(s.ts);
+})();
+
+function reconnectSaved(){
+  const s=storageLoad();if(!s){toast('NO SAVED SESSION');return;}
+  document.getElementById('saved-banner').classList.remove('on');
+  if(s.role==='alpha'){
+    showStep(1);
+    toast('GENERATING FRESH CODE…');
+    setTimeout(()=>generateOffer(),400);
+  } else {
+    showStep(2);
+    document.getElementById('offer-input').value=s.offerCode;
+    toast('OFFER CODE RESTORED — TAP GENERATE RESPONSE');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  AUDIO + BEEPS
+// ══════════════════════════════════════════════════════
+let actx=null;
+function getACtx(){
+  if(!actx) actx=new(window.AudioContext||window.webkitAudioContext)();
+  if(actx.state==='suspended') actx.resume();
+  return actx;
+}
+function beep(f,d,t='sine',v=0.18){
+  try{
+    const c=getACtx(),o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);
+    o.type=t;o.frequency.setValueAtTime(f,c.currentTime);
+    g.gain.setValueAtTime(0,c.currentTime);
+    g.gain.linearRampToValueAtTime(v,c.currentTime+.01);
+    g.gain.linearRampToValueAtTime(0,c.currentTime+d);
+    o.start();o.stop(c.currentTime+d+.02);
+  }catch(e){}
+}
+const bTx  = ()=>{beep(900,.06,'square',.12);setTimeout(()=>beep(1200,.05,'square',.09),55);};
+const bRel = ()=>{beep(700,.05,'square',.09);setTimeout(()=>beep(500,.1,'square',.1),45);};
+const bConn= ()=>{
+  beep(440,.08);setTimeout(()=>beep(554,.08),90);
+  setTimeout(()=>beep(660,.08),180);setTimeout(()=>beep(880,.12),270);
+};
+
+// Background keepalive
+let silentOsc=null,wakeLock=null;
+function keepAlive(){
+  try{
+    const c=getACtx();
+    if(silentOsc){try{silentOsc.stop();}catch(e){}}
+    const o=c.createOscillator(),g=c.createGain();
+    g.gain.value=0;o.connect(g);g.connect(c.destination);o.start();
+    silentOsc=o;
+  }catch(e){}
+  try{if('wakeLock' in navigator) navigator.wakeLock.request('screen').then(w=>{wakeLock=w;});}catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'){
+    if(actx&&actx.state==='suspended') actx.resume();
+    const ra=document.getElementById('remote-audio');
+    if(ra.srcObject&&ra.paused) ra.play().catch(()=>{});
+  }
+});
+
+// ══════════════════════════════════════════════════════
+//  WEBRTC — FIXED FLOW
+//
+//  THE PROBLEM WITH OLD CODE:
+//  Both sides were creating PeerConnections and both were
+//  generating codes at each step. The JOIN tab was generating
+//  an "answer" but the CREATE side was also regenerating,
+//  creating an infinite loop of codes that never resolved.
+//
+//  THE FIX:
+//  Strict roles: Alpha ONLY creates offer, Bravo ONLY creates answer.
+//  Alpha sets remote description ONCE with Bravo's answer → done.
+//  No polling. No re-generation. Linear 3-step flow.
+// ══════════════════════════════════════════════════════
+let pc=null, localStream=null, audioTrack=null;
+window._connected=false;
+let txing=false, vuTick=null, analyser=null;
+let currentOfferCode=null; // Alpha stores this for saving
+
+const STUN=[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'stun:stun.cloudflare.com:3478'},
+  {urls:'stun:stun.services.mozilla.com'},
+];
+
+function mkPC(){
+  const p=new RTCPeerConnection({iceServers:STUN,iceCandidatePoolSize:10});
+  p.oniceconnectionstatechange=()=>{
+    const s=p.iceConnectionState;
+    setStatus(`ICE: ${s.toUpperCase()}`,false);
+    if(s==='connected'||s==='completed') onConn();
+    if(s==='disconnected'||s==='failed'||s==='closed') onDisc();
+  };
+  p.onconnectionstatechange=()=>{
+    if(p.connectionState==='connected') onConn();
+  };
+  p.ontrack=e=>{
+    const el=document.getElementById('remote-audio');
+    el.srcObject=e.streams[0];
+    el.play().catch(()=>{});
+  };
+  return p;
+}
+
+// Wait for ICE gathering to complete fully
+function waitForIce(p){
+  return new Promise(resolve=>{
+    if(p.iceGatheringState==='complete'){resolve();return;}
+    const check=()=>{
+      if(p.iceGatheringState==='complete'){
+        p.removeEventListener('icegatheringstatechange',check);
+        resolve();
+      }
+    };
+    p.addEventListener('icegatheringstatechange',check);
+    // Timeout fallback at 8s
+    setTimeout(resolve,8000);
+  });
+}
+
+async function getMic(){
+  if(localStream) return localStream;
+  localStream=await navigator.mediaDevices.getUserMedia({
+    audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,sampleRate:16000},
+    video:false
+  });
+  audioTrack=localStream.getAudioTracks()[0];
+  audioTrack.enabled=false;
+  return localStream;
+}
+
+// ── STEP 1: Alpha generates offer ──
+async function generateOffer(){
+  setStatus('ACQUIRING MIC…',false);
+  try{
+    const stream=await getMic();
+    if(pc){pc.close();pc=null;}
+    pc=mkPC();
+    stream.getTracks().forEach(t=>pc.addTrack(t,stream));
+
+    setStatus('GENERATING OFFER SDP…',false);
+    const offer=await pc.createOffer({offerToReceiveAudio:true});
+    await pc.setLocalDescription(offer);
+
+    setStatus('GATHERING ICE CANDIDATES…',false);
+    toast('GATHERING NETWORK INFO — PLEASE WAIT…');
+
+    await waitForIce(pc);
+
+    // Encode the complete SDP (with all ICE candidates bundled in)
+    const sdpObj={type:pc.localDescription.type, sdp:pc.localDescription.sdp};
+    const code=btoa(JSON.stringify(sdpObj));
+    currentOfferCode=code;
+
+    const el=document.getElementById('offer-block');
+    el.innerHTML=code+'<span class="copy-hint">TAP TO COPY</span>';
+    el.classList.remove('empty');
+
+    setStatus('OFFER READY — COPY & SEND TO BRAVO',false);
+    toast('✓ CODE READY — COPY IT AND SEND TO BRAVO');
+
+    // Mark step 1 done
+    document.getElementById('s1btn').classList.add('done');
+  }catch(e){
+    setStatus('ERROR: '+e.message,false);
+    toast('FAILED — CHECK MIC PERMISSION');
+    console.error(e);
+  }
+}
+
+// ── STEP 2: Bravo pastes offer, generates answer ──
+async function generateAnswer(){
+  const raw=document.getElementById('offer-input').value.trim();
+  if(!raw){toast('PASTE ALPHA\'S CODE FIRST');return;}
+
+  let offerObj;
+  try{offerObj=JSON.parse(atob(raw));}
+  catch(e){toast('INVALID CODE — CHECK AND RETRY');return;}
+  if(offerObj.type!=='offer'){toast('THIS IS NOT AN OFFER CODE');return;}
+
+  setStatus('ACQUIRING MIC…',false);
+  try{
+    const stream=await getMic();
+    if(pc){pc.close();pc=null;}
+    pc=mkPC();
+    stream.getTracks().forEach(t=>pc.addTrack(t,stream));
+
+    setStatus('PROCESSING ALPHA\'S OFFER…',false);
+    await pc.setRemoteDescription(new RTCSessionDescription(offerObj));
+
+    const answer=await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    setStatus('GATHERING ICE CANDIDATES…',false);
+    toast('GATHERING NETWORK INFO — PLEASE WAIT…');
+
+    await waitForIce(pc);
+
+    const sdpObj={type:pc.localDescription.type, sdp:pc.localDescription.sdp};
+    const code=btoa(JSON.stringify(sdpObj));
+
+    const el=document.getElementById('answer-block');
+    el.innerHTML=code+'<span class="copy-hint">TAP TO COPY</span>';
+    el.classList.remove('empty');
+
+    setStatus('RESPONSE READY — SEND TO ALPHA',false);
+    toast('✓ RESPONSE READY — COPY IT AND SEND BACK TO ALPHA');
+
+    // Save joiner session
+    if(saveJ) storageSave('bravo', raw);
+
+    document.getElementById('s2btn').classList.add('done');
+  }catch(e){
+    setStatus('ERROR: '+e.message,false);
+    toast('FAILED — CHECK CODE AND RETRY');
+    console.error(e);
+  }
+}
+
+// ── STEP 3: Alpha pastes answer, CONNECTS ──
+async function connectWithAnswer(){
+  const raw=document.getElementById('answer-input').value.trim();
+  if(!raw){toast('PASTE BRAVO\'S RESPONSE CODE');return;}
+  if(!pc){toast('COMPLETE STEP 1 FIRST');return;}
+
+  let ansObj;
+  try{ansObj=JSON.parse(atob(raw));}
+  catch(e){toast('INVALID CODE — CHECK AND RETRY');return;}
+  if(ansObj.type!=='answer'){toast('THIS IS NOT A RESPONSE CODE');return;}
+
+  setStatus('CONNECTING…',false);
+  try{
+    await pc.setRemoteDescription(new RTCSessionDescription(ansObj));
+    setStatus('HANDSHAKING — ESTABLISHING CHANNEL…',false);
+    toast('CONNECTING…');
+
+    // Save alpha session
+    if(saveC && currentOfferCode) storageSave('alpha', currentOfferCode);
+
+    document.getElementById('s3btn').classList.add('done');
+  }catch(e){
+    setStatus('CONNECT FAILED: '+e.message,false);
+    toast('FAILED — ENSURE CODES ARE CORRECT');
+    console.error(e);
+  }
+}
+
+// ── Connection events ──
+function onConn(){
+  if(window._connected)return;
+  window._connected=true;
+  connectedAt=Date.now();
+  setStatus('CHANNEL SECURE · MONITORING',true);
+
+  document.getElementById('ptt').disabled=false;
+  document.getElementById('sigbars').classList.add('live');
+  document.getElementById('ri-peer').textContent='ONLINE';
+  document.getElementById('ri-peer').classList.remove('warn');
+  document.getElementById('ri-peer').classList.add('live');
+  document.getElementById('tel-mode').textContent='ACTIVE';
+  document.getElementById('tel-mode').classList.add('on');
+
+  // Collapse conn panel
+  document.getElementById('conn-section').classList.add('hidden');
+  document.getElementById('show-conn').style.display='block';
+
+  keepAlive();
+  bConn();
+  toast('● CHANNEL OPEN — HOLD BUTTON TO TRANSMIT');
+}
+
+function onDisc(){
+  if(!window._connected)return;
+  window._connected=false;
+  connectedAt=null;
+  setStatus('PEER DISCONNECTED',false);
+  document.getElementById('ptt').disabled=true;
+  document.getElementById('sigbars').classList.remove('live');
+  document.getElementById('ri-peer').textContent='OFFLINE';
+  document.getElementById('ri-peer').classList.add('warn');
+  document.getElementById('ri-peer').classList.remove('live');
+  document.getElementById('tel-mode').textContent='STANDBY';
+  document.getElementById('tel-mode').classList.remove('on');
+  document.getElementById('tel-audio').textContent='MUTED';
+  document.getElementById('tel-audio').classList.remove('on');
+  if(txing) txOff();
+  stopVU();
+  beep(440,.07,'square',.1);setTimeout(()=>beep(300,.15,'square',.1),75);
+}
+
+// ══════════════════════════════════════════════════════
+//  PTT
+// ══════════════════════════════════════════════════════
+const pttBtn=document.getElementById('ptt');
+
+function txOn(){
+  if(!window._connected||txing)return;
+  getACtx();
+  txing=true;
+  if(audioTrack) audioTrack.enabled=true;
+  pttBtn.classList.add('tx');
+  setStatus('TRANSMITTING — CHANNEL ACTIVE',true);
+  document.getElementById('tel-audio').textContent='TX LIVE';
+  document.getElementById('tel-audio').classList.add('on');
+  bTx();startVU();
+}
+function txOff(){
+  if(!txing)return;
+  txing=false;
+  if(audioTrack) audioTrack.enabled=false;
+  pttBtn.classList.remove('tx');
+  setStatus('CHANNEL SECURE · MONITORING',true);
+  document.getElementById('tel-audio').textContent='LISTEN';
+  document.getElementById('tel-audio').classList.remove('on');
+  bRel();stopVU();
+}
+
+pttBtn.addEventListener('touchstart',e=>{e.preventDefault();txOn();},{passive:false});
+pttBtn.addEventListener('touchend',  e=>{e.preventDefault();txOff();},{passive:false});
+pttBtn.addEventListener('touchcancel',e=>{e.preventDefault();txOff();},{passive:false});
+pttBtn.addEventListener('mousedown', e=>{e.preventDefault();txOn();});
+pttBtn.addEventListener('mouseup',   ()=>txOff());
+pttBtn.addEventListener('mouseleave',()=>{if(txing)txOff();});
+document.addEventListener('keydown', e=>{if(e.code==='Space'&&!e.repeat)txOn();});
+document.addEventListener('keyup',   e=>{if(e.code==='Space')txOff();});
+
+// ══════════════════════════════════════════════════════
+//  VU METER
+// ══════════════════════════════════════════════════════
+function startVU(){
+  if(!localStream)return;
+  try{
+    const c=getACtx();
+    analyser=c.createAnalyser();analyser.fftSize=256;
+    c.createMediaStreamSource(localStream).connect(analyser);
+    const bars=document.querySelectorAll('#vu .vb');
+    const buf=new Uint8Array(analyser.frequencyBinCount);
+    document.getElementById('vu').classList.add('on');
+    vuTick=setInterval(()=>{
+      analyser.getByteFrequencyData(buf);
+      bars.forEach((b,i)=>{
+        const v=buf[Math.floor(i*buf.length/bars.length)]/255;
+        b.style.height=Math.max(3,v*22)+'px';
+      });
+    },50);
+  }catch(e){}
+}
+function stopVU(){
+  clearInterval(vuTick);
+  document.getElementById('vu').classList.remove('on');
+  document.querySelectorAll('#vu .vb').forEach(b=>b.style.height='3px');
+}
+
+// ══════════════════════════════════════════════════════
+//  UI HELPERS
+// ══════════════════════════════════════════════════════
+function setStatus(msg,live){
+  document.getElementById('stxt').textContent=msg;
+  const d=document.getElementById('sdot');
+  d.className='sdot';
+  if(live&&txing) d.classList.add('tx');
+  else if(live) d.classList.add('live');
+}
+
+function showStep(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('step'+i).style.display=i===n?'block':'none';
+    document.getElementById('s'+i+'btn').classList.toggle('active',i===n);
+  });
+}
+
+let connPanelHidden=false;
+function toggleConnPanel(){
+  connPanelHidden=!connPanelHidden;
+  document.getElementById('conn-section').classList.toggle('hidden',connPanelHidden);
+  document.getElementById('show-conn').textContent=connPanelHidden?'▼ SHOW CONNECTION PANEL':'▲ HIDE PANEL';
+}
+
+function copyOffer(){
+  const el=document.getElementById('offer-block');
+  const txt=el.textContent.replace('TAP TO COPY','').trim();
+  if(!txt||txt.includes('AWAITING')){toast('GENERATE FIRST');return;}
+  copyText(txt);toast('✓ OFFER CODE COPIED — SEND TO BRAVO');
+}
+function copyAnswer(){
+  const el=document.getElementById('answer-block');
+  const txt=el.textContent.replace('TAP TO COPY','').replace('RESPONSE CODE WILL APPEAR HERE','').trim();
+  if(!txt){toast('GENERATE RESPONSE FIRST');return;}
+  copyText(txt);toast('✓ RESPONSE CODE COPIED — SEND TO ALPHA');
+}
+function copyText(txt){
+  navigator.clipboard.writeText(txt).catch(()=>{
+    const a=document.createElement('textarea');
+    a.value=txt;document.body.appendChild(a);
+    a.select();document.execCommand('copy');document.body.removeChild(a);
+  });
+}
+
+let tT;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('on');
+  clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('on'),3000);
+}
+
+// Freq animation
+const FREQS=['462.5625','462.5875','462.6125','462.6375','462.6625'];
+let fi=0;
+setInterval(()=>{
+  if(!window._connected) document.getElementById('fval').textContent=FREQS[fi++%FREQS.length];
+},3500);
+</script>
+</body>
+</html>
